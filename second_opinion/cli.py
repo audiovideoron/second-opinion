@@ -13,7 +13,7 @@ Usage:
     second-opinion "Is this approach correct for chunking PDFs?"
 
   Model override:
-    second-opinion --model gpt-4o-mini "Quick question about X"
+    second-opinion --model gpt-4o "Quick question about X"
 """
 
 import sys
@@ -32,13 +32,13 @@ def main() -> None:
             "  second-opinion --fresh artifact.md          # fresh-eyes review from file\n"
             "  second-opinion --review                     # review context from stdin\n"
             "  second-opinion --review context.txt         # review context from file\n"
-            "  second-opinion --model gpt-4o-mini ...      # override model\n",
+            "  second-opinion --model gpt-4o ...            # override model (default: o3)\n",
             file=sys.stderr,
         )
         sys.exit(0 if args else 1)
 
     # Parse --model flag
-    model = "gpt-4o"
+    model = "o3"
     if "--model" in args:
         idx = args.index("--model")
         if idx + 1 < len(args):
