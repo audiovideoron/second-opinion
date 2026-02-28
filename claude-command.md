@@ -25,15 +25,19 @@ Send the raw artifact (file contents, code, test output) + a neutral question.
 The question should ask OpenAI to independently identify issues, missing code
 paths, or edge cases. Do NOT summarize what you think is wrong.
 
+For files, pass the path directly (preferred — avoids heredoc expansion issues):
+
+```bash
+second-opinion --fresh path/to/file.md
+```
+
+For assembled context, pipe via stdin:
+
 ```bash
 cat <<'CONTEXT' | second-opinion --fresh
-<artifact>
 [raw file contents, code, test output — NOT your analysis]
-</artifact>
 
-<question>
-[neutral question: "What issues, missing code paths, or edge cases do you see?"]
-</question>
+Question: What issues, missing code paths, or edge cases do you see?
 CONTEXT
 ```
 
@@ -57,7 +61,7 @@ CONTEXT
 Keep total context under 4000 tokens in either mode. Be ruthless — OpenAI
 needs signal, not noise.
 
-You can override the model with `--model gpt-4o-mini` for quick/cheap questions.
+Default model is `o3` (reasoning). Override with `--model gpt-4o` for faster/cheaper questions.
 
 ## Step 2 — Act on the response
 
