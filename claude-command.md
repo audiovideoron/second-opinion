@@ -11,37 +11,55 @@ It may be empty — if so, infer from recent conversation context.
 
 ## Step 1 — Gather context
 
-Build a concise context package. Include **only what's relevant** to the problem:
+**Anti-anchoring rule:** Do NOT include your own findings, analysis, or
+conclusions in the context you send. Send the **raw artifact** — file contents,
+code, error output — and a neutral question. Let OpenAI form its own opinion
+from the evidence. Including your analysis causes OpenAI to validate rather
+than independently review.
 
-- The specific question or blocker (from `$ARGUMENTS` or conversation)
-- Relevant code snippets (files you've been editing or reading)
-- Error messages or unexpected behavior
-- What has already been tried and why it didn't work
+There are two modes:
 
-Keep total context under 4000 tokens. Be ruthless — OpenAI needs signal, not noise.
+### Fresh-eyes mode (default — use `--fresh`)
 
-## Step 2 — Call the tool
-
-Pipe the context to the globally installed `second-opinion` CLI:
+Send the raw artifact (file contents, code, test output) + a neutral question.
+The question should ask OpenAI to independently identify issues, missing code
+paths, or edge cases. Do NOT summarize what you think is wrong.
 
 ```bash
-cat <<'CONTEXT' | second-opinion --review
-<context>
-[your gathered context here]
-</context>
+cat <<'CONTEXT' | second-opinion --fresh
+<artifact>
+[raw file contents, code, test output — NOT your analysis]
+</artifact>
 
 <question>
-[the specific question you want answered]
+[neutral question: "What issues, missing code paths, or edge cases do you see?"]
 </question>
 CONTEXT
 ```
 
-The `--review` flag sends context directly to OpenAI as a single completion —
-no tools, no loop. Fast.
+### Validate mode (only when user explicitly asks — use `--review`)
+
+Only use this when the user says "validate my review", "check my analysis",
+or similar. This is the only time you include your own findings.
+
+```bash
+cat <<'CONTEXT' | second-opinion --review
+<context>
+[your analysis + the supporting code/evidence]
+</context>
+
+<question>
+[the specific question you want validated]
+</question>
+CONTEXT
+```
+
+Keep total context under 4000 tokens in either mode. Be ruthless — OpenAI
+needs signal, not noise.
 
 You can override the model with `--model gpt-4o-mini` for quick/cheap questions.
 
-## Step 3 — Act on the response
+## Step 2 — Act on the response
 
 Do NOT just print OpenAI's response and stop.
 
