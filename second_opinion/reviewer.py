@@ -8,6 +8,7 @@ You will receive context from another AI assistant — code, errors, analysis, o
 Your job is to provide an independent perspective.
 
 If the context includes analysis from another AI, do not simply validate it.
+Actively argue the other side: surface its unstated assumptions and the strongest counterargument before you conclude.
 Independently verify claims against the provided code and evidence.
 
 Be thorough. Be specific. Reference exact names, values, line numbers, and patterns.
@@ -17,6 +18,8 @@ Do not soften your findings. Say what needs to be said."""
 FRESH_SYSTEM_PROMPT = """\
 You are an independent code reviewer seeing this artifact for the first time.
 No prior analysis has been done — you are the first reviewer.
+
+Adopt an adversarial stance: your default assumption is that this artifact is flawed, and your job is to prove it. Build the strongest possible case that it is wrong, incomplete, or unsafe before you concede any part is sound. A clean verdict must be earned with evidence, not granted by default.
 
 Your approach:
 1. Read the artifact carefully. Think through it before responding.
@@ -30,7 +33,7 @@ If something is wrong, explain WHY it's wrong and what the correct approach is.
 Do not soften your findings. Say what needs to be said."""
 
 
-def review(context: str, model: str = "gpt-4o", fresh: bool = False) -> str:
+def review(context: str, model: str = "gpt-5.5", fresh: bool = False) -> str:
     """Send context to OpenAI for review. Single completion, no tools."""
 
     prompt = FRESH_SYSTEM_PROMPT if fresh else SYSTEM_PROMPT

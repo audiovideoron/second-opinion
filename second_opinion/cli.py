@@ -32,13 +32,13 @@ def main() -> None:
             "  second-opinion --fresh artifact.md          # fresh-eyes review from file\n"
             "  second-opinion --review                     # review context from stdin\n"
             "  second-opinion --review context.txt         # review context from file\n"
-            "  second-opinion --model gpt-4o ...            # override model (default: o3)\n",
+            "  second-opinion --model gpt-4o ...            # override model (default: gpt-5.5)\n",
             file=sys.stderr,
         )
         sys.exit(0 if args else 1)
 
     # Parse --model flag
-    model = "o3"
+    model = "gpt-5.5"
     if "--model" in args:
         idx = args.index("--model")
         if idx + 1 < len(args):

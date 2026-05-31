@@ -21,9 +21,11 @@ There are two modes:
 
 ### Fresh-eyes mode (default — use `--fresh`)
 
-Send the raw artifact (file contents, code, test output) + a neutral question.
-The question should ask OpenAI to independently identify issues, missing code
-paths, or edge cases. Do NOT summarize what you think is wrong.
+Send the raw artifact (file contents, code, test output) + a question that
+pushes for pushback. The question should make OpenAI challenge the artifact —
+surface weaknesses, unstated assumptions, counterarguments, and unhandled edge
+cases — not merely catalogue observations. Anti-anchoring still applies: do NOT
+reveal your own conclusions or summarize what you think is wrong.
 
 For files, pass the path directly (preferred — avoids heredoc expansion issues):
 
@@ -37,7 +39,7 @@ For assembled context, pipe via stdin:
 cat <<'CONTEXT' | second-opinion --fresh
 [raw file contents, code, test output — NOT your analysis]
 
-Question: What issues, missing code paths, or edge cases do you see?
+Question: What weaknesses, unstated assumptions, or counterarguments does this miss? Make the strongest case that it is wrong.
 CONTEXT
 ```
 
@@ -61,7 +63,7 @@ CONTEXT
 Keep total context under 4000 tokens in either mode. Be ruthless — OpenAI
 needs signal, not noise.
 
-Default model is `o3` (reasoning). Override with `--model gpt-4o` for faster/cheaper questions.
+Default model is `gpt-5.5` (reasoning). Override with `--model gpt-4o` for faster/cheaper questions. Do NOT use `o3` — it's been retired from this workflow.
 
 ## Step 2 — Act on the response
 
