@@ -5,9 +5,6 @@ description = "Get a second opinion from OpenAI inside Claude Code"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Ron Peled" }]
-dependencies = [
-    "openai>=1.0.0",
-]
 
 [project.scripts]
 second-opinion = "second_opinion.cli:main"

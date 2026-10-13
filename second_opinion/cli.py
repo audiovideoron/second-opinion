@@ -1,28 +1,26 @@
-"""CLI entry point for second-opinion.
+r"""CLI entry point for second-opinion.
 
 Usage:
   Fresh-eyes mode (independent review, no prior analysis):
     echo '<artifact>...</artifact>' | second-opinion --fresh
-    second-opinion --fresh artifact.md
+    printf '%s\n\n' "<question>" | cat - a.py b.py | second-opinion --fresh
 
   Review mode (validate existing analysis):
     echo '<context>...</context>' | second-opinion --review
-    second-opinion --review context.txt
+    second-opinion --review < context.txt
 
   Simple prompt:
     second-opinion "Is this approach correct for chunking PDFs?"
 
   Model / reasoning / timeout overrides:
-    second-opinion --model gpt-4o "Quick question about X"
-    second-opinion --reasoning-effort high --fresh artifact.md
-    second-opinion --timeout 600 --fresh big_artifact.md
+    second-opinion --model gpt-5.5 "Quick question about X"
+    second-opinion --reasoning-effort high --fresh < artifact.md
+    second-opinion --timeout 600 --fresh < big_artifact.md
 """
 
 import sys
 
-from openai import APITimeoutError, OpenAIError
-
-from .reviewer import review
+from .reviewer import ReviewError, review
 
 _VALID_EFFORTS = {"minimal", "low", "medium", "high"}
 
@@ -50,10 +48,9 @@ def main() -> None:
             "Usage:\n"
             '  second-opinion "your question"              # simple prompt\n'
             "  second-opinion --fresh                      # fresh-eyes review from stdin\n"
-            "  second-opinion --fresh artifact.md          # fresh-eyes review from file\n"
             "  second-opinion --review                     # review context from stdin\n"
-            "  second-opinion --review context.txt         # review context from file\n"
-            "  second-opinion --model gpt-4o ...           # override model (default: gpt-5.5)\n"
+            "  printf '%s\\n\\n' \"<question>\" | cat - <files> | second-opinion --fresh   # multi-file\n"
+            "  second-opinion --model gpt-5.5 ...           # override model (default: gpt-5.5)\n"
             "  second-opinion --reasoning-effort high ...  # minimal|low|medium|high (default: medium)\n"
             "  second-opinion --timeout 600 ...            # request timeout in seconds (default: 300)\n",
             file=sys.stderr,
@@ -94,11 +91,13 @@ def main() -> None:
 
     if has_fresh:
         args.remove("--fresh")
-        context = _read_context(args[0] if args else "-")
+        _reject_positional(args, "--fresh")
+        context = _read_context()
         fresh = True
     elif has_review:
         args.remove("--review")
-        context = _read_context(args[0] if args else "-")
+        _reject_positional(args, "--review")
+        context = _read_context()
         fresh = False
     else:
         # Simple prompt mode — the remaining args ARE the prompt.
@@ -118,34 +117,28 @@ def main() -> None:
                 timeout=timeout,
             )
         )
-    except APITimeoutError:
+    except ReviewError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(exc.code)
+
+
+def _reject_positional(args: list[str], flag: str) -> None:
+    if args:
         print(
-            f"second-opinion: request timed out after {timeout:g}s. "
-            "Try a longer --timeout or a lower --reasoning-effort for large contexts.",
+            f"Error: {flag} reads stdin only; unexpected argument {args[0]!r}. "
+            "For files use:\n"
+            f"  printf '%s\\n\\n' \"<question>\" | cat - <files> | second-opinion {flag}",
             file=sys.stderr,
         )
         sys.exit(1)
-    except OpenAIError as exc:
-        print(f"second-opinion: OpenAI API error: {exc}", file=sys.stderr)
-        sys.exit(1)
 
 
-def _read_context(source: str) -> str:
-    """Read context from stdin or a file path."""
-    if source == "-":
-        context = sys.stdin.read()
-    else:
-        try:
-            with open(source, encoding="utf-8") as f:
-                context = f.read()
-        except FileNotFoundError:
-            print(f"Error: file not found: {source}", file=sys.stderr)
-            sys.exit(1)
-
+def _read_context() -> str:
+    """Read context from stdin."""
+    context = sys.stdin.read()
     if not context.strip():
         print("Error: empty context", file=sys.stderr)
         sys.exit(1)
-
     return context
 
 
