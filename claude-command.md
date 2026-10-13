@@ -27,10 +27,17 @@ surface weaknesses, unstated assumptions, counterarguments, and unhandled edge
 cases — not merely catalogue observations. Anti-anchoring still applies: do NOT
 reveal your own conclusions or summarize what you think is wrong.
 
-For files, pass the path directly (preferred — avoids heredoc expansion issues):
+For one file, redirect it to stdin:
 
 ```bash
-second-opinion --fresh path/to/file.md
+second-opinion --fresh < path/to/file.md
+```
+
+For several files plus a question, pipe the question first, then the files
+(a file path after `--fresh` is an error):
+
+```bash
+printf '%s\n\n' "<question>" | cat - a.py b.py | second-opinion --fresh
 ```
 
 For assembled context, pipe via stdin:
@@ -63,7 +70,7 @@ CONTEXT
 Keep total context under 4000 tokens in either mode. Be ruthless — OpenAI
 needs signal, not noise.
 
-Default model is `gpt-5.5` (reasoning). Override with `--model gpt-4o` for faster/cheaper questions. Do NOT use `o3` — it's been retired from this workflow.
+Default model is `gpt-5.5` (reasoning). Override with `--model` only if needed; `--reasoning-effort low` is the faster option. Do NOT use `o3` — it's been retired from this workflow.
 
 ## Step 2 — Act on the response
 
@@ -79,5 +86,13 @@ The goal is to **resolve the blocker**, not relay a message.
 
 ## Environment
 
-Requires `OPENAI_API_KEY` set in your shell environment.
-The `second-opinion` CLI is installed globally via `uv tool install`.
+Runs on the user's ChatGPT subscription through `codex exec` — no `OPENAI_API_KEY`.
+One-time setup: `CODEX_HOME=~/.second-opinion/codex-home codex login` (choose
+Sign in with ChatGPT). The `second-opinion` CLI is installed globally via
+`uv tool install`.
+
+Exit codes: `2` = the codex home is not a ChatGPT sign-in (tell the user to run
+the login command above); `3` = HOLD, plan usage limit reached. On exit 3, report
+codex's line and the usage URL to the user and stop — there is no fallback, and
+never substitute a Claude/Anthropic review. Any other nonzero exit: report the
+printed error.
