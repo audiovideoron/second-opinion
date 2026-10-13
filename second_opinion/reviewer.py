@@ -33,17 +33,29 @@ If something is wrong, explain WHY it's wrong and what the correct approach is.
 Do not soften your findings. Say what needs to be said."""
 
 
-def review(context: str, model: str = "gpt-5.5", fresh: bool = False) -> str:
-    """Send context to OpenAI for review. Single completion, no tools."""
+def review(
+    context: str,
+    model: str = "gpt-5.5",
+    fresh: bool = False,
+    reasoning_effort: str = "medium",
+    timeout: float = 300.0,
+) -> str:
+    """Send context to OpenAI for review via the Responses API.
 
-    prompt = FRESH_SYSTEM_PROMPT if fresh else SYSTEM_PROMPT
+    Uses the Responses API (the documented path for reasoning models) with an
+    explicit reasoning effort. The client is configured with a bounded timeout
+    and max_retries=0 so a slow/large review fails FAST and LOUD rather than
+    hanging: the SDK defaults (600s timeout x 2 retries) could otherwise block
+    for ~30 minutes before erroring. Callers can raise reasoning_effort to
+    "high" for small/critical artifacts, or lengthen timeout for large ones.
+    """
+    instructions = FRESH_SYSTEM_PROMPT if fresh else SYSTEM_PROMPT
 
-    client = OpenAI()
-    response = client.chat.completions.create(
+    client = OpenAI(timeout=timeout, max_retries=0)
+    response = client.responses.create(
         model=model,
-        messages=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": context},
-        ],
+        instructions=instructions,
+        input=context,
+        reasoning={"effort": reasoning_effort},
     )
-    return response.choices[0].message.content or ""
+    return response.output_text or ""
