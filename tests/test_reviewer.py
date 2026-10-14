@@ -15,10 +15,12 @@ FAKE_CODEX = """\
 import json, os, sys
 here = os.path.dirname(os.path.abspath(__file__))
 cfg = json.load(open(os.path.join(here, "config.json")))
+cfg.update(cfg.get("homes", {{}}).get(os.path.basename(os.environ.get("CODEX_HOME", "")), {{}}))
 argv = sys.argv[1:]
 rec = {{"argv": argv, "stdin": sys.stdin.read(), "env": dict(os.environ),
         "cwd": os.getcwd()}}
 json.dump(rec, open(os.path.join(here, "record.json"), "w"))
+open(os.path.join(here, "calls.txt"), "a").write(os.path.basename(os.environ.get("CODEX_HOME", "")) + "\\n")
 if "-o" in argv and cfg.get("last"):
     open(argv[argv.index("-o") + 1], "w").write(cfg["last"])
 sys.stdout.write(cfg.get("stdout", ""))
@@ -47,6 +49,16 @@ class Rig:
         (self.codex_home / "auth.json").write_text(
             data if isinstance(data, str) else json.dumps(data)
         )
+
+    def set_api_auth(self, data):
+        api = self.home / ".second-opinion" / "codex-home-api"
+        api.mkdir(parents=True, exist_ok=True)
+        (api / "auth.json").write_text(json.dumps(data))
+
+    @property
+    def calls(self):
+        path = self.bin / "calls.txt"
+        return path.read_text().split() if path.exists() else []
 
     @property
     def record(self):
@@ -206,3 +218,64 @@ def test_extra_positional_after_fresh_is_error_naming_stdin_form(rig):
         assert r.returncode == 1
         assert "cat - <files>" in r.stderr and flag in r.stderr
         assert rig.record is None
+
+
+API_SPENT = "ERROR: Quota exceeded. Check your plan and billing details.\n"
+
+
+def test_no_api_home_uses_plan_only(rig):
+    r = rig.run("--fresh")
+    assert r.returncode == 0, r.stderr
+    assert rig.calls == ["codex-home"]
+
+
+def test_api_home_used_first(rig):
+    rig.set_api_auth({"auth_mode": "apikey"})
+    rig.configure(homes={"codex-home-api": {"last": "API REVIEW\n"}})
+    r = rig.run("--fresh")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "API REVIEW"
+    assert rig.calls == ["codex-home-api"]
+    assert "account=api" in r.stderr
+
+
+def test_api_balance_spent_falls_back_to_plan(rig):
+    rig.set_api_auth({"auth_mode": "apikey"})
+    rig.configure(
+        last="PLAN REVIEW\n",
+        homes={"codex-home-api": {"last": "", "stderr": API_SPENT, "rc": 1}},
+    )
+    r = rig.run("--fresh")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "PLAN REVIEW"
+    assert rig.calls == ["codex-home-api", "codex-home"]
+    assert "API balance spent" in r.stderr
+
+
+def test_api_spent_then_plan_limit_holds(rig):
+    rig.set_api_auth({"auth_mode": "apikey"})
+    rig.configure(
+        last="",
+        stderr="ERROR: You've hit your usage limit. Try again at 11:18 PM.\n",
+        rc=1,
+        homes={"codex-home-api": {"stderr": API_SPENT}},
+    )
+    r = rig.run("--fresh")
+    assert r.returncode == 3
+    assert rig.calls == ["codex-home-api", "codex-home"]
+
+
+def test_other_api_error_does_not_fall_back(rig):
+    rig.set_api_auth({"auth_mode": "apikey"})
+    rig.configure(homes={"codex-home-api": {"last": "", "stderr": "ERROR: boom\n", "rc": 1}})
+    r = rig.run("--fresh")
+    assert r.returncode == 1
+    assert "ERROR: boom" in r.stderr
+    assert rig.calls == ["codex-home-api"]
+
+
+def test_api_home_without_apikey_mode_is_ignored(rig):
+    rig.set_api_auth({"auth_mode": "chatgpt"})
+    r = rig.run("--fresh")
+    assert r.returncode == 0, r.stderr
+    assert rig.calls == ["codex-home"]

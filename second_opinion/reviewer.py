@@ -1,13 +1,19 @@
-"""Core reviewer: runs the review through `codex exec` on a ChatGPT subscription.
+"""Core reviewer: runs the review through `codex exec`.
 
-No OpenAI SDK and no API key. The child codex runs text-only (no shell tools),
-in a fresh empty directory, with its own isolated CODEX_HOME that must hold a
-ChatGPT sign-in.
+No OpenAI SDK. The child codex runs text-only (no shell tools), in a fresh empty
+directory, with an isolated CODEX_HOME. Two homes, tried in order:
+
+1. ~/.second-opinion/codex-home-api — an API-key login on a PREPAID balance
+   (operator ruling 2026-10-13: spend the prepaid balance, then go back to the
+   plan). Used only if it exists and its auth_mode is "apikey".
+2. ~/.second-opinion/codex-home — the ChatGPT plan sign-in. Used when there is
+   no API home, or when the API balance is spent.
 """
 
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -53,6 +59,9 @@ LOGIN_HINT = "CODEX_HOME=~/.second-opinion/codex-home codex login"
 # Plan-limit wordings, matched against codex's terminal ERROR line only.
 _PLAN_LIMIT_MARKERS = ("hit your usage limit", "upgrade to plus")
 
+# API balance-spent wordings (OpenAI `insufficient_quota`), same matching rule.
+_API_SPENT_MARKERS = ("quota exceeded", "exceeded your current quota", "insufficient_quota")
+
 _ENV_ALLOWLIST = (
     "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TERM", "TMPDIR", "TZ",
     "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY",
@@ -72,6 +81,20 @@ class ReviewError(Exception):
 
 def codex_home() -> Path:
     return Path.home() / ".second-opinion" / "codex-home"
+
+
+def api_codex_home() -> Path:
+    return Path.home() / ".second-opinion" / "codex-home-api"
+
+
+def _auth_mode(home: Path) -> str | None:
+    """auth.json's auth_mode, or None. Reads only that key."""
+    try:
+        with open(home / "auth.json", encoding="utf-8") as f:
+            mode = json.load(f).get("auth_mode")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return mode if isinstance(mode, str) else None
 
 
 def _check_auth(home: Path) -> None:
@@ -116,16 +139,58 @@ def review(
 ) -> str:
     """Review `context` with `codex exec` and return the final message.
 
-    Raises ReviewError (exit 2: not a ChatGPT sign-in; exit 3: plan usage limit,
-    hold with no fallback; exit 1: any other failure).
+    Tries the prepaid API home first when it exists; when its balance is spent,
+    falls back to the ChatGPT plan home. Raises ReviewError (exit 2: plan home
+    not a ChatGPT sign-in; exit 3: plan usage limit, hold; exit 1: any other
+    failure).
     """
     instructions = FRESH_SYSTEM_PROMPT if fresh else SYSTEM_PROMPT
     prompt = f"{instructions}\n\n{TEXT_ONLY_NOTE}\n\n{context}"
     effort = _EFFORT_MAP.get(reasoning_effort, reasoning_effort)
 
+    api_home = api_codex_home()
+    if _auth_mode(api_home) == "apikey":
+        proc, text = _run_codex(prompt, model, effort, timeout, api_home)
+        if proc.returncode == 0 and text.strip():
+            print("second-opinion: account=api (prepaid balance)", file=sys.stderr)
+            return text
+        line = _terminal_error(proc.stderr, proc.stdout)
+        if not (line and any(m in line.lower() for m in _API_SPENT_MARKERS)):
+            raise ReviewError(line or (
+                f"second-opinion: codex exited {proc.returncode} with no review output."
+            ), 1)
+        print(
+            f"second-opinion: API balance spent ({line}); using the ChatGPT plan.",
+            file=sys.stderr,
+        )
+
     home = codex_home()
     _check_auth(home)
+    proc, text = _run_codex(prompt, model, effort, timeout, home)
 
+    if proc.returncode == 0 and text.strip():
+        print("second-opinion: account=chatgpt plan", file=sys.stderr)
+        return text
+
+    line = _terminal_error(proc.stderr, proc.stdout)
+    if line and any(m in line.lower() for m in _PLAN_LIMIT_MARKERS):
+        raise ReviewError(
+            "HOLD: your ChatGPT plan usage limit is reached. There is no fallback "
+            "and no other model will be used.\n"
+            f"codex said: {line}\n"
+            f"Usage: {USAGE_URL}",
+            3,
+        )
+    if line:
+        raise ReviewError(line, 1)
+    raise ReviewError(
+        f"second-opinion: codex exited {proc.returncode} with no review output.", 1
+    )
+
+
+def _run_codex(
+    prompt: str, model: str, effort: str, timeout: float, home: Path
+) -> tuple[subprocess.CompletedProcess, str]:
     with tempfile.TemporaryDirectory(prefix="second-opinion-") as tmp:
         workdir = Path(tmp).resolve() / "work"
         workdir.mkdir()
@@ -155,21 +220,4 @@ def review(
             ) from None
 
         text = last.read_text(encoding="utf-8") if last.exists() else ""
-
-    if proc.returncode == 0 and text.strip():
-        return text
-
-    line = _terminal_error(proc.stderr, proc.stdout)
-    if line and any(m in line.lower() for m in _PLAN_LIMIT_MARKERS):
-        raise ReviewError(
-            "HOLD: your ChatGPT plan usage limit is reached. There is no fallback "
-            "and no other model will be used.\n"
-            f"codex said: {line}\n"
-            f"Usage: {USAGE_URL}",
-            3,
-        )
-    if line:
-        raise ReviewError(line, 1)
-    raise ReviewError(
-        f"second-opinion: codex exited {proc.returncode} with no review output.", 1
-    )
+    return proc, text
