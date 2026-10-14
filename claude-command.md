@@ -70,7 +70,7 @@ CONTEXT
 Keep total context under 4000 tokens in either mode. Be ruthless — OpenAI
 needs signal, not noise.
 
-Default model is `gpt-5.5` (reasoning). Override with `--model` only if needed; `--reasoning-effort low` is the faster option. Do NOT use `o3` — it's been retired from this workflow.
+Default model is `gpt-5.6-terra` (cheapest strong model on the Plus plan; GPT-6 Astra costs about 5x the allowance). Override with `--model` only if needed; `--reasoning-effort low` is the faster option. Do NOT use `o3` — it's been retired from this workflow.
 
 ## Step 2 — Act on the response
 

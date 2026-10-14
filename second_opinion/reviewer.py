@@ -109,7 +109,7 @@ def _terminal_error(*streams: str) -> str | None:
 
 def review(
     context: str,
-    model: str = "gpt-5.5",
+    model: str = "gpt-5.6-terra",
     fresh: bool = False,
     reasoning_effort: str = "medium",
     timeout: float = 300.0,

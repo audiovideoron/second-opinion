@@ -50,7 +50,7 @@ def main() -> None:
             "  second-opinion --fresh                      # fresh-eyes review from stdin\n"
             "  second-opinion --review                     # review context from stdin\n"
             "  printf '%s\\n\\n' \"<question>\" | cat - <files> | second-opinion --fresh   # multi-file\n"
-            "  second-opinion --model gpt-5.5 ...           # override model (default: gpt-5.5)\n"
+            "  second-opinion --model gpt-5.5 ...           # override model (default: gpt-5.6-terra)\n"
             "  second-opinion --reasoning-effort high ...  # minimal|low|medium|high (default: medium)\n"
             "  second-opinion --timeout 600 ...            # request timeout in seconds (default: 300)\n",
             file=sys.stderr,
@@ -59,7 +59,7 @@ def main() -> None:
 
     # Value-taking flags — extract before positional/source handling.
     model, args = _pop_value_flag(args, "--model")
-    model = model or "gpt-5.5"
+    model = model or "gpt-5.6-terra"
 
     effort, args = _pop_value_flag(args, "--reasoning-effort")
     reasoning_effort = effort or "medium"

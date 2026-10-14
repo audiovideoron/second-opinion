@@ -10,7 +10,7 @@ We noticed that Claude's built-in `/second-opinion` slash command was producing 
 
 1. **Anchoring bias** — Claude was sending its own analysis along with the code, which anchored OpenAI to validate rather than independently review
 2. **JSON output format** — forcing structured JSON responses suppressed the model's ability to reason deeply
-3. **Wrong model** — `gpt-4o` doesn't reason hard enough for code review; a reasoning model does (default: `gpt-5.5`)
+3. **Wrong model** — `gpt-4o` doesn't reason hard enough for code review; a reasoning model does (default: `gpt-5.6-terra`)
 
 After fixing all three, the same test plan that got zero findings now produced a 9-point review catching event loop mismatches, incorrect patch targets, and missing code paths.
 
@@ -72,7 +72,7 @@ EOF
 
 ### Model override
 
-Default model is `gpt-5.5`. Use `--model` to pick another model your plan offers, `--reasoning-effort minimal|low|medium|high` (minimal maps to low), and `--timeout SECONDS` (default 300):
+Default model is `gpt-5.6-terra` (about one-fifth the plan allowance of the Codex default, GPT-6 Astra). Use `--model` to pick another model your plan offers, `--reasoning-effort minimal|low|medium|high` (minimal maps to low), and `--timeout SECONDS` (default 300):
 
 ```bash
 second-opinion --reasoning-effort low "Quick sanity check on this regex"
