@@ -60,7 +60,10 @@ LOGIN_HINT = "CODEX_HOME=~/.second-opinion/codex-home codex login"
 _PLAN_LIMIT_MARKERS = ("hit your usage limit", "upgrade to plus")
 
 # API balance-spent wordings (OpenAI `insufficient_quota`), same matching rule.
-_API_SPENT_MARKERS = ("quota exceeded", "exceeded your current quota", "insufficient_quota")
+_API_SPENT_MARKERS = (
+    "quota exceeded", "exceeded your current quota", "insufficient_quota",
+    "no credits remaining",
+)
 
 _ENV_ALLOWLIST = (
     "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TERM", "TMPDIR", "TZ",

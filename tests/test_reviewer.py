@@ -279,3 +279,14 @@ def test_api_home_without_apikey_mode_is_ignored(rig):
     r = rig.run("--fresh")
     assert r.returncode == 0, r.stderr
     assert rig.calls == ["codex-home"]
+
+
+def test_no_credits_remaining_wording_falls_back(rig):
+    rig.set_api_auth({"auth_mode": "apikey"})
+    rig.configure(
+        last="PLAN REVIEW\n",
+        homes={"codex-home-api": {"last": "", "stderr": "ERROR: no credits remaining\n", "rc": 1}},
+    )
+    r = rig.run("--fresh")
+    assert r.returncode == 0, r.stderr
+    assert rig.calls == ["codex-home-api", "codex-home"]
